@@ -230,6 +230,17 @@ DISABLE_REGISTRATION = false
 ; 是否启用注册验证码
 ENABLE_REGISTRATION_CAPTCHA = true
 
+; 是否启用主站SSO集成
+ENABLE_SSO_WITH_MAIN_SITE = false
+; 主站验证URL，用于SSO验证
+MAIN_SITE_VERIFY_URL =
+; 主站登录页面URL，如果不配置则自动拼接MAIN_SITE_VERIFY_URL
+MAIN_SITE_LOGIN_URL =
+; SSO认证使用的cookie名称
+SSO_COOKIE_NAME = auth_token
+; SSO认证使用的cookie域名
+SSO_COOKIE_DOMAIN =
+
 ; 是否启用通过HTTP头的反向代理认证
 ENABLE_REVERSE_PROXY_AUTHENTICATION = false
 ; 是否为反向代理认证自动创建新用户

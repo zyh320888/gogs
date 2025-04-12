@@ -5,9 +5,9 @@
 package user
 
 import (
-	"errors"
 	gocontext "context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -363,12 +363,40 @@ func SignUp(c *context.Context) {
 	c.Title("sign_up")
 
 	// 如果启用了SSO，则重定向到主站注册页面
-	if conf.Auth.EnableSSOWithMainSite && conf.Auth.MainSiteVerifyURL != "" {
-		// 构建主站注册URL
-		mainSiteURL := strings.TrimSuffix(conf.Auth.MainSiteVerifyURL, "/sso-verify")
-		registerURL := mainSiteURL + "/register"
+	if conf.Auth.EnableSSOWithMainSite {
+		// 必须配置主站登录URL
+		if conf.Auth.MainSiteLoginURL == "" {
+			c.Error(errors.New("SSO配置不完整: 必须配置MainSiteLoginURL"), strconv.Itoa(http.StatusBadRequest))
+			return
+		}
 
-		c.Redirect(registerURL)
+		// 构建主站注册URL（从主站登录URL构建）
+		registerURL := strings.Replace(conf.Auth.MainSiteLoginURL, "/login", "/register", 1)
+
+		// 添加回调参数，使注册后可以返回到当前页面
+		redirectTo := c.Query("redirect_to")
+		if len(redirectTo) == 0 {
+			redirectTo, _ = url.QueryUnescape(c.GetCookie("redirect_to"))
+		}
+
+		// 如果有重定向目标，添加到注册URL
+		if len(redirectTo) > 0 {
+			callbackURL := conf.Server.ExternalURL
+			// 智能处理URL拼接时的斜杠问题
+			if strings.HasSuffix(callbackURL, "/") && strings.HasPrefix(redirectTo, "/") {
+				callbackURL = strings.TrimSuffix(callbackURL, "/")
+			} else if !strings.HasSuffix(callbackURL, "/") && !strings.HasPrefix(redirectTo, "/") {
+				callbackURL += "/"
+			}
+			callbackURL += redirectTo
+			// 确保callback参数只编码一次
+			if decoded, err := url.QueryUnescape(callbackURL); err == nil {
+				callbackURL = decoded
+			}
+			registerURL += "?callback=" + url.QueryEscape(callbackURL)
+		}
+
+		http.Redirect(c.Resp, c.Req.Request, registerURL, http.StatusFound)
 		return
 	}
 

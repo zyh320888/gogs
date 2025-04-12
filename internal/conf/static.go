@@ -255,10 +255,10 @@ type AuthOpts struct {
 	ReverseProxyAuthenticationHeader   string
 
 	// SSO settings for main site integration
-	EnableSSOWithMainSite bool
-	MainSiteVerifyURL     string
-	SSOCookieName         string
-	SSOCookieDomain       string
+	EnableSSOWithMainSite bool   `ini:"ENABLE_SSO_WITH_MAIN_SITE"`
+	MainSiteVerifyURL     string `ini:"MAIN_SITE_VERIFY_URL"`
+	SSOCookieName         string `ini:"SSO_COOKIE_NAME"`
+	SSOCookieDomain       string `ini:"SSO_COOKIE_DOMAIN"`
 }
 
 // Authentication settings

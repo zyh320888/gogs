@@ -1,0 +1,16 @@
+; 主站OAuth认证配置
+; 将此文件复制为oauth.conf并填写以下信息
+
+[oauth]
+ENABLED = false
+NAME = 主站名称
+ICON = fa-share-alt  ; Font Awesome图标
+CLIENT_ID = 
+CLIENT_SECRET = 
+AUTH_URL = http://主站地址/oauth/authorize
+TOKEN_URL = http://主站地址/oauth/token
+API_URL = http://主站地址/api/user
+SCOPES = user:email
+; 用户信息映射
+USER_NAME = login
+USER_EMAIL = email

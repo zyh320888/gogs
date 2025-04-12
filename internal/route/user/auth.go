@@ -84,9 +84,6 @@ func AutoLogin(c *context.Context) (bool, error) {
 func Login(c *context.Context) {
 	c.Title("sign_in")
 
-	// 添加调试日志，打印SSO配置值
-	log.Info("SSO配置：EnableSSOWithMainSite=%v, MainSiteVerifyURL=%s", conf.Auth.EnableSSOWithMainSite, conf.Auth.MainSiteVerifyURL)
-
 	// 如果启用了SSO，则重定向到主站登录页面
 	if conf.Auth.EnableSSOWithMainSite {
 		// 必须配置主站登录URL
@@ -105,14 +102,21 @@ func Login(c *context.Context) {
 		loginURL := conf.Auth.MainSiteLoginURL
 		if len(redirectTo) > 0 {
 			callbackURL := conf.Server.ExternalURL
-			if !strings.HasSuffix(callbackURL, "/") {
+			// 智能处理URL拼接时的斜杠问题
+			if strings.HasSuffix(callbackURL, "/") && strings.HasPrefix(redirectTo, "/") {
+				callbackURL = strings.TrimSuffix(callbackURL, "/")
+			} else if !strings.HasSuffix(callbackURL, "/") && !strings.HasPrefix(redirectTo, "/") {
 				callbackURL += "/"
 			}
 			callbackURL += redirectTo
+			// 确保callback参数只编码一次
+			if decoded, err := url.QueryUnescape(callbackURL); err == nil {
+				callbackURL = decoded
+			}
 			loginURL += "?callback=" + url.QueryEscape(callbackURL)
 		}
 
-		c.Redirect(loginURL)
+		http.Redirect(c.Resp, c.Req.Request, loginURL, http.StatusFound)
 		return
 	}
 

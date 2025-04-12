@@ -208,6 +208,20 @@ func authenticatedUser(store AuthStore, ctx *macaron.Context, sess session.Store
 	uid, isTokenAuth := authenticatedUserID(store, ctx, sess)
 
 	if uid <= 0 {
+		// 检查JWT令牌认证（主站单点登录）
+		if conf.Auth.EnableSSOWithMainSite {
+			// 从请求中获取JWT令牌
+			bearerToken := auth.GetJWTTokenFromRequest(ctx.Req.Request)
+
+			// 使用JWT令牌认证用户
+			if bearerToken != "" {
+				user, ok := database.AuthenticateByJWT(database.Handle, ctx.Req.Context(), bearerToken, conf.Auth.EnableReverseProxyAutoRegistration)
+				if ok && user != nil {
+					return user, false, false
+				}
+			}
+		}
+
 		if conf.Auth.EnableReverseProxyAuthentication {
 			webAuthUser := ctx.Req.Header.Get(conf.Auth.ReverseProxyAuthenticationHeader)
 			if len(webAuthUser) > 0 {

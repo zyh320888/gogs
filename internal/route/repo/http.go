@@ -109,6 +109,77 @@ func HTTPContexter(store Store) macaron.Handler {
 		// Handle HTTP Basic Authentication
 		authHead := c.Req.Header.Get("Authorization")
 		if authHead == "" {
+			// 检查JWT Cookie认证（主站单点登录）
+			if conf.Auth.EnableSSOWithMainSite {
+				bearerToken := auth.GetJWTTokenFromRequest(c.Req.Request)
+				if bearerToken != "" {
+					// 使用JWT令牌认证用户
+					authUser, ok := database.AuthenticateByJWT(database.Handle, c.Req.Context(), bearerToken, false)
+					if ok && authUser != nil {
+						// 用户验证通过，检查权限
+						if database.Handle.Permissions().Authorize(c.Req.Context(), authUser.ID, repo.ID, database.AccessModeWrite,
+							database.AccessModeOptions{
+								OwnerID: repo.OwnerID,
+								Private: repo.IsPrivate,
+							},
+						) {
+							// 权限验证通过
+							repoPath := repo.RepoPath()
+							log.Trace("[Git] User %s authenticated via JWT for repository %s", authUser.Name, repoPath)
+							c.Map(&HTTPContext{
+								Context:   c,
+								OwnerName: ownerName,
+								OwnerSalt: owner.Salt,
+								RepoID:    repo.ID,
+								RepoName:  repoName,
+								AuthUser:  authUser,
+							})
+							return
+						}
+					}
+				}
+			}
+
+			// 没有凭证，请求Basic Auth
+			askCredentials(c, http.StatusUnauthorized, "")
+			return
+		}
+
+		// 检查Bearer令牌（JWT认证）
+		if conf.Auth.EnableSSOWithMainSite && strings.HasPrefix(authHead, "Bearer ") {
+			bearerToken := strings.TrimPrefix(authHead, "Bearer ")
+			isValid, username := auth.VerifyJWTToken(bearerToken)
+			if isValid && username != "" {
+				authUser, err := store.GetUserByUsername(c.Req.Context(), username)
+				if err == nil {
+					// 用户验证通过，检查权限
+					reqMode := database.AccessModeWrite
+					if isPull {
+						reqMode = database.AccessModeRead
+					}
+					repoPath := repo.RepoPath()
+					if database.Handle.Permissions().Authorize(c.Req.Context(), authUser.ID, repo.ID, reqMode,
+						database.AccessModeOptions{
+							OwnerID: repo.OwnerID,
+							Private: repo.IsPrivate,
+						},
+					) {
+						// 权限验证通过
+						log.Trace("[Git] User %s authenticated via JWT bearer token for repository %s", username, repoPath)
+						c.Map(&HTTPContext{
+							Context:   c,
+							OwnerName: ownerName,
+							OwnerSalt: owner.Salt,
+							RepoID:    repo.ID,
+							RepoName:  repoName,
+							AuthUser:  authUser,
+						})
+						return
+					}
+				}
+			}
+
+			// JWT认证失败，尝试Basic Auth
 			askCredentials(c, http.StatusUnauthorized, "")
 			return
 		}

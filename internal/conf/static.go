@@ -253,6 +253,12 @@ type AuthOpts struct {
 	EnableReverseProxyAuthentication   bool
 	EnableReverseProxyAutoRegistration bool
 	ReverseProxyAuthenticationHeader   string
+
+	// SSO settings for main site integration
+	EnableSSOWithMainSite bool
+	MainSiteVerifyURL     string
+	SSOCookieName         string
+	SSOCookieDomain       string
 }
 
 // Authentication settings

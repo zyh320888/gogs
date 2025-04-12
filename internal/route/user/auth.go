@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/go-macaron/captcha"
 	"github.com/unknwon/com"
@@ -81,6 +82,36 @@ func AutoLogin(c *context.Context) (bool, error) {
 func Login(c *context.Context) {
 	c.Title("sign_in")
 
+	// 添加调试日志，打印SSO配置值
+	log.Info("SSO配置：EnableSSOWithMainSite=%v, MainSiteVerifyURL=%s", conf.Auth.EnableSSOWithMainSite, conf.Auth.MainSiteVerifyURL)
+
+	// 如果启用了SSO，则重定向到主站登录页面
+	if conf.Auth.EnableSSOWithMainSite && conf.Auth.MainSiteVerifyURL != "" {
+		// 构建主站登录URL
+		mainSiteURL := strings.TrimSuffix(conf.Auth.MainSiteVerifyURL, "/sso-verify")
+		loginURL := mainSiteURL + "/login"
+
+		// 添加回调参数，使登录后可以返回到当前页面
+		redirectTo := c.Query("redirect_to")
+		if len(redirectTo) == 0 {
+			redirectTo, _ = url.QueryUnescape(c.GetCookie("redirect_to"))
+		}
+
+		// 如果有重定向目标，添加到登录URL
+		if len(redirectTo) > 0 {
+			callbackURL := conf.Server.ExternalURL
+			if !strings.HasSuffix(callbackURL, "/") {
+				callbackURL += "/"
+			}
+			callbackURL += redirectTo
+			loginURL += "?callback=" + url.QueryEscape(callbackURL)
+		}
+
+		c.Redirect(loginURL)
+		return
+	}
+
+	// 以下是原有的本地登录逻辑，当未启用SSO时使用
 	// Check auto-login
 	isSucceed, err := AutoLogin(c)
 	if err != nil {
@@ -153,6 +184,17 @@ func afterLogin(c *context.Context, u *database.User, remember bool) {
 func LoginPost(c *context.Context, f form.SignIn) {
 	c.Title("sign_in")
 
+	// 如果启用了SSO，则重定向到主站登录页面
+	if conf.Auth.EnableSSOWithMainSite && conf.Auth.MainSiteVerifyURL != "" {
+		// 构建主站登录URL
+		mainSiteURL := strings.TrimSuffix(conf.Auth.MainSiteVerifyURL, "/sso-verify")
+		loginURL := mainSiteURL + "/login"
+
+		c.Redirect(loginURL)
+		return
+	}
+
+	// 以下是原有的本地登录逻辑，当未启用SSO时使用
 	loginSources, err := database.Handle.LoginSources().List(c.Req.Context(), database.ListLoginSourceOptions{OnlyActivated: true})
 	if err != nil {
 		c.Error(err, "list activated login sources")
@@ -198,6 +240,16 @@ func LoginPost(c *context.Context, f form.SignIn) {
 }
 
 func LoginTwoFactor(c *context.Context) {
+	// 如果启用了SSO，则重定向到主站登录页面
+	if conf.Auth.EnableSSOWithMainSite && conf.Auth.MainSiteVerifyURL != "" {
+		// 构建主站登录URL
+		mainSiteURL := strings.TrimSuffix(conf.Auth.MainSiteVerifyURL, "/sso-verify")
+		loginURL := mainSiteURL + "/login"
+
+		c.Redirect(loginURL)
+		return
+	}
+
 	_, ok := c.Session.Get("twoFactorUserID").(int64)
 	if !ok {
 		c.NotFound()
@@ -291,11 +343,25 @@ func SignOut(c *context.Context) {
 	c.SetCookie(conf.Security.CookieUsername, "", -1, conf.Server.Subpath)
 	c.SetCookie(conf.Security.CookieRememberName, "", -1, conf.Server.Subpath)
 	c.SetCookie(conf.Session.CSRFCookieName, "", -1, conf.Server.Subpath)
+
+	// 清除SSO Cookie
+	auth.ClearSSOCookie(c.Context)
+
 	c.RedirectSubpath("/")
 }
 
 func SignUp(c *context.Context) {
 	c.Title("sign_up")
+
+	// 如果启用了SSO，则重定向到主站注册页面
+	if conf.Auth.EnableSSOWithMainSite && conf.Auth.MainSiteVerifyURL != "" {
+		// 构建主站注册URL
+		mainSiteURL := strings.TrimSuffix(conf.Auth.MainSiteVerifyURL, "/sso-verify")
+		registerURL := mainSiteURL + "/register"
+
+		c.Redirect(registerURL)
+		return
+	}
 
 	c.Data["EnableCaptcha"] = conf.Auth.EnableRegistrationCaptcha
 

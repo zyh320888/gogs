@@ -635,11 +635,6 @@ func runWeb(c *cli.Context) error {
 		m.Group("/api", func() {
 			apiv1.RegisterRoutes(m)
 		}, ignSignIn)
-		
-		// 注册OAuth路由（仅在配置文件存在时）
-		if _, err := os.Stat(filepath.Join(conf.CustomDir(), "conf/oauth.conf")); err == nil {
-			route.RegisterOAuthRoutes(m)
-		}
 	},
 		session.Sessioner(session.Options{
 			Provider:       conf.Session.Provider,

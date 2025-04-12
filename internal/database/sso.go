@@ -43,6 +43,8 @@ func AuthenticateByJWT(store *DB, ctx context.Context, token string, autoRegiste
 				gouuid.NewV4().String()+"@localhost",
 				CreateUserOptions{
 					Activated: true,
+					LoginSource: 1, // 使用您刚创建的PAM认证源ID
+					LoginName: username,
 				},
 			)
 			if err != nil {

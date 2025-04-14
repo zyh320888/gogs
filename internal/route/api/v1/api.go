@@ -288,6 +288,7 @@ func RegisterRoutes(m *macaron.Macaron) {
 					})
 				})
 				m.Get("/forks", repo.ListForks)
+				m.Post("/fork", bind(repo.ForkRepoOption{}), repo.CreateFork)
 				m.Get("/tags", repo.ListTags)
 				m.Group("/branches", func() {
 					m.Get("", repo.ListBranches)
@@ -396,6 +397,7 @@ func RegisterRoutes(m *macaron.Macaron) {
 					m.Post("/keys", bind(api.CreateKeyOption{}), admin.CreatePublicKey)
 					m.Post("/orgs", bind(api.CreateOrgOption{}), admin.CreateOrg)
 					m.Post("/repos", bind(api.CreateRepoOption{}), admin.CreateRepo)
+					m.Post("/fork", bind(admin.ForkRepoOption{}), admin.ForkRepo)
 				})
 			})
 

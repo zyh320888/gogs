@@ -19,6 +19,13 @@ import (
 	"gogs.io/gogs/internal/route/api/v1/convert"
 )
 
+// 临时添加，直到go-gogs-client的更新被正确集成
+type ForkRepoOption struct {
+	RepoName     string `json:"repo_name" binding:"Required;AlphaDashDot;MaxSize(100)"`
+	Description  string `json:"description" binding:"MaxSize(255)"`
+	Organization string `json:"organization"` // 可选，如果要fork到组织
+}
+
 func Search(c *context.APIContext) {
 	opts := &database.SearchRepoOptions{
 		Keyword:  path.Base(c.Query("q")),
@@ -337,6 +344,73 @@ func Delete(c *context.APIContext) {
 
 	log.Trace("Repository deleted: %s/%s", owner.Name, repo.Name)
 	c.NoContent()
+}
+
+func CreateFork(c *context.APIContext, form ForkRepoOption) {
+	// 获取要fork的源仓库
+	_, repo := parseOwnerAndRepo(c)
+	if c.Written() {
+		return
+	}
+
+	// 确认仓库可以被fork
+	if !repo.CanBeForked() {
+		c.ErrorStatus(http.StatusBadRequest, errors.New("Repository cannot be forked"))
+		return
+	}
+
+	// 确定目标用户/组织
+	var targetOwner *database.User
+	var err error
+
+	if len(form.Organization) > 0 {
+		// Fork到指定组织
+		targetOwner, err = database.Handle.Users().GetByUsername(c.Req.Context(), form.Organization)
+		if err != nil {
+			c.NotFoundOrError(err, "get organization by name")
+			return
+		}
+
+		// 检查用户是否有权限向该组织贡献
+		if !targetOwner.IsOrganization() || !targetOwner.IsOwnedBy(c.User.ID) {
+			c.ErrorStatus(http.StatusForbidden, errors.New("Given organization is either not an organization or you're not an owner"))
+			return
+		}
+	} else {
+		// Fork到当前用户
+		targetOwner = c.User
+	}
+
+	// 检查是否已经fork过
+	existRepo, has, err := database.HasForkedRepo(targetOwner.ID, repo.ID)
+	if err != nil {
+		c.Error(err, "check if already forked")
+		return
+	} else if has {
+		c.JSONSuccess(existRepo.APIFormatLegacy(&api.Permission{Admin: true, Push: true, Pull: true}))
+		return
+	}
+
+	// 创建fork
+	repoName := form.RepoName
+	if len(repoName) == 0 {
+		repoName = repo.Name
+	}
+
+	forkedRepo, err := database.ForkRepository(c.User, targetOwner, repo, repoName, form.Description)
+	if err != nil {
+		if database.IsErrRepoAlreadyExist(err) {
+			c.ErrorStatus(http.StatusUnprocessableEntity, err)
+		} else if database.IsErrNameNotAllowed(err) {
+			c.ErrorStatus(http.StatusUnprocessableEntity, err)
+		} else {
+			c.Error(err, "fork repository")
+		}
+		return
+	}
+
+	log.Trace("Repository forked from '%s' -> '%s'", repo.FullName(), forkedRepo.FullName())
+	c.JSON(201, forkedRepo.APIFormatLegacy(&api.Permission{Admin: true, Push: true, Pull: true}))
 }
 
 func ListForks(c *context.APIContext) {

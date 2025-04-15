@@ -397,7 +397,7 @@ func RegisterRoutes(m *macaron.Macaron) {
 					m.Post("/keys", bind(api.CreateKeyOption{}), admin.CreatePublicKey)
 					m.Post("/orgs", bind(api.CreateOrgOption{}), admin.CreateOrg)
 					m.Post("/repos", bind(api.CreateRepoOption{}), admin.CreateRepo)
-					m.Post("/fork", bind(admin.ForkRepoOption{}), admin.ForkRepo)
+					m.Post("/repos/fork", bind(admin.ForkRepoOption{}), admin.ForkRepo)
 				})
 			})
 

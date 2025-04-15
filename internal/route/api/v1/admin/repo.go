@@ -9,7 +9,6 @@ import (
 
 	api "github.com/gogs/go-gogs-client"
 	"github.com/pkg/errors"
-	log "unknwon.dev/clog/v2"
 
 	"gogs.io/gogs/internal/context"
 	"gogs.io/gogs/internal/database"
@@ -22,6 +21,9 @@ type ForkRepoOption struct {
 	RepoName     string `json:"repo_name" binding:"Required;AlphaDashDot;MaxSize(100)"`
 	Description  string `json:"description" binding:"MaxSize(255)"`
 	Organization string `json:"organization"` // 可选，如果要fork到组织
+	// 源仓库参数
+	RepoOwner      string `json:"repo_owner"`
+	SourceRepoName string `json:"source_repo_name"`
 }
 
 func CreateRepo(c *context.APIContext, form api.CreateRepoOption) {
@@ -37,12 +39,16 @@ func CreateRepo(c *context.APIContext, form api.CreateRepoOption) {
 func ForkRepo(c *context.APIContext, form ForkRepoOption) {
 	// 获取目标用户（接收fork的用户）
 	targetOwner := user.GetUserByParams(c)
-	if c.Written() {
+
+	// 确保目标用户存在
+	if targetOwner == nil {
+		userID := c.Params(":username")
+		c.ErrorStatus(http.StatusNotFound, errors.New("Target user does not exist: "+userID))
 		return
 	}
 
 	// 获取源仓库所有者和仓库
-	repoUser, repoName := c.Query("repo_owner"), c.Query("repo_name")
+	repoUser, repoName := form.RepoOwner, form.SourceRepoName
 	if len(repoUser) == 0 || len(repoName) == 0 {
 		c.ErrorStatus(http.StatusBadRequest, errors.New("repo_owner and repo_name parameters are required"))
 		return
@@ -92,6 +98,5 @@ func ForkRepo(c *context.APIContext, form ForkRepoOption) {
 		return
 	}
 
-	log.Trace("[Admin] Repository forked from '%s' -> '%s' by admin '%s'", sourceRepo.FullName(), forkedRepo.FullName(), c.User.Name)
 	c.JSON(201, forkedRepo.APIFormatLegacy(&api.Permission{Admin: true, Push: true, Pull: true}))
 }

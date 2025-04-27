@@ -84,5 +84,7 @@ docker build -t registry.cn-beijing.aliyuncs.com/d8dcloud/d8d-gogs:latest .
 #   -v /tmp/gogs-log:/mnt/gogs/log \
 #   registry.cn-beijing.aliyuncs.com/d8dcloud/d8d-gogs:latest
 
+# docker push registry.cn-beijing.aliyuncs.com/d8dcloud/d8d-gogs:latest
+
 # 删除临时目录
 rm -rf "$temp_dir"

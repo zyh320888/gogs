@@ -79,6 +79,7 @@ Gogs需要以下依赖项：
     sudo apt install -y make git-all postgresql postgresql-contrib golang-go nodejs
     npm install -g less
     bash /mnt/code/clash-for-linux-backup/start.sh
+    source /etc/profile.d/clash.sh
     go install github.com/go-task/task/v3/cmd/task@latest
     go install github.com/derision-test/go-mockgen/cmd/go-mockgen@v1.3.3
     go install golang.org/x/tools/cmd/goimports@latest

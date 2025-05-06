@@ -35,19 +35,16 @@ RUN echo "deb http://mirrors.aliyun.com/debian/ bookworm main non-free contrib" 
     echo "deb http://mirrors.aliyun.com/debian/ bookworm-backports main non-free contrib" >> /etc/apt/sources.list && \
     echo "deb-src http://mirrors.aliyun.com/debian/ bookworm-backports main non-free contrib" >> /etc/apt/sources.list
 
-# 切换到 root 用户
-USER root
+# 创建git 用户
+RUN useradd -m -s /bin/bash git
+
+# 切换到 git 用户
+USER git
 
 # 安装必要的依赖
-RUN apt-get update && apt-get install -y curl wget
+RUN apt-get update && apt-get install -y curl wget unzip git
 
 RUN echo 'alias ll="ls -alF"' >> ~/.bashrc
-
-# 安装 unzip
-RUN apt-get install -y unzip
-
-# 安装 git
-RUN apt-get install -y git
 
 
 # 清除 apt 缓存和无用文件
@@ -68,7 +65,7 @@ COPY gogs ${GOGS_DIR}/
 RUN chmod +x ${GOGS_DIR}/gogs
 
 # 暴露 Gogs 端口
-EXPOSE 23958
+EXPOSE 80 443 22
 
 # 启动 Gogs
 CMD ["${GOGS_DIR}/gogs", "web"]

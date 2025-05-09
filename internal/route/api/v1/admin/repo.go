@@ -73,19 +73,20 @@ func ForkRepo(c *context.APIContext, form ForkRepoOption) {
 	}
 
 	// 检查是否已经fork过
-	existRepo, has, err := database.HasForkedRepo(targetOwner.ID, sourceRepo.ID)
-	if err != nil {
-		c.Error(err, "check if already forked")
-		return
-	} else if has {
-		c.JSONSuccess(existRepo.APIFormatLegacy(&api.Permission{Admin: true, Push: true, Pull: true}))
-		return
-	}
+	// existRepo, has, err := database.HasForkedRepo(targetOwner.ID, sourceRepo.ID)
+	// if err != nil {
+	// 	c.Error(err, "check if already forked")
+	// 	return
+	// } else if has {
+	// 	c.JSONSuccess(existRepo.APIFormatLegacy(&api.Permission{Admin: true, Push: true, Pull: true}))
+	// 	return
+	// }
 
 	// 创建fork
 	forkName := form.RepoName
 	if len(forkName) == 0 {
-		forkName = sourceRepo.Name
+		// forkName = sourceRepo.Name
+		c.ErrorStatus(http.StatusBadRequest, errors.New("repo_name parameters are required"))
 	}
 
 	forkedRepo, err := database.ForkRepository(c.User, targetOwner, sourceRepo, forkName, form.Description)

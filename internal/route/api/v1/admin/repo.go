@@ -37,14 +37,29 @@ func CreateRepo(c *context.APIContext, form api.CreateRepoOption) {
 
 // ForkRepo creates a fork from source repository to target user
 func ForkRepo(c *context.APIContext, form ForkRepoOption) {
-	// 获取目标用户（接收fork的用户）
-	targetOwner := user.GetUserByParams(c)
+	var targetOwner *database.User
+	var err error
 
-	// 确保目标用户存在
-	if targetOwner == nil {
-		userID := c.Params(":username")
-		c.ErrorStatus(http.StatusNotFound, errors.New("Target user does not exist: "+userID))
-		return
+	// 处理组织fork的情况
+	if len(form.Organization) > 0 {
+		// 验证组织存在
+		targetOwner, err = database.GetOrgByName(form.Organization)
+		if err != nil {
+			c.NotFoundOrError(err, "get organization")
+			return
+		}
+
+		
+	} else {
+		// 获取目标用户（接收fork的用户）
+		targetOwner = user.GetUserByParams(c)
+
+		// 确保目标用户存在
+		if targetOwner == nil {
+			userID := c.Params(":username")
+			c.ErrorStatus(http.StatusNotFound, errors.New("Target user does not exist: "+userID))
+			return
+		}
 	}
 
 	// 获取源仓库所有者和仓库
@@ -73,20 +88,19 @@ func ForkRepo(c *context.APIContext, form ForkRepoOption) {
 	}
 
 	// 检查是否已经fork过
-	// existRepo, has, err := database.HasForkedRepo(targetOwner.ID, sourceRepo.ID)
-	// if err != nil {
-	// 	c.Error(err, "check if already forked")
-	// 	return
-	// } else if has {
-	// 	c.JSONSuccess(existRepo.APIFormatLegacy(&api.Permission{Admin: true, Push: true, Pull: true}))
-	// 	return
-	// }
+	existRepo, has, err := database.HasForkedRepo(targetOwner.ID, sourceRepo.ID)
+	if err != nil {
+		c.Error(err, "check if already forked")
+		return
+	} else if has {
+		c.JSONSuccess(existRepo.APIFormatLegacy(&api.Permission{Admin: true, Push: true, Pull: true}))
+		return
+	}
 
 	// 创建fork
 	forkName := form.RepoName
 	if len(forkName) == 0 {
-		// forkName = sourceRepo.Name
-		c.ErrorStatus(http.StatusBadRequest, errors.New("repo_name parameters are required"))
+		forkName = sourceRepo.Name
 	}
 
 	forkedRepo, err := database.ForkRepository(c.User, targetOwner, sourceRepo, forkName, form.Description)

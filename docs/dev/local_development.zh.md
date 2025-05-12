@@ -84,12 +84,20 @@ Gogs需要以下依赖项：
     go install github.com/go-task/task/v3/cmd/task@latest
     go install github.com/derision-test/go-mockgen/cmd/go-mockgen@v1.3.3
     go install golang.org/x/tools/cmd/goimports@latest
-
+    
+    go install golang.org/x/tools/gopls@latest           # LSP服务器
+    go install github.com/cweill/gotests/...@latest      # 测试生成工具
+    go install github.com/fatih/gomodifytags@latest      # 修改结构体标签
+    go install github.com/josharian/impl@latest          # 接口实现生成
+    go install github.com/haya14busa/goplay/cmd/goplay@latest  # Go Playground客户端
+    go install github.com/go-delve/delve/cmd/dlv@latest  # 调试器
+    go install honnef.co/go/tools/cmd/staticcheck@latest # 静态分析工具
     
     groupadd -g 1001 git && \
     useradd -m -s /bin/bash -u 1001 -g 1001 git && \
     chown -R git:git /home/git && \
     chmod 700 /home/git
+    chown -R git:git /mnt/code/gogs/data
     ```
 
 

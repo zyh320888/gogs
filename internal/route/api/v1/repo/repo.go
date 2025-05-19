@@ -83,22 +83,25 @@ func Search(c *context.APIContext) {
 	})
 }
 
+// listUserRepositories 列出指定用户的所有仓库
 func listUserRepositories(c *context.APIContext, username string) {
+	// 根据用户名获取用户信息
 	user, err := database.Handle.Users().GetByUsername(c.Req.Context(), username)
 	if err != nil {
 		c.NotFoundOrError(err, "get user by name")
 		return
 	}
 
-	// Only list public repositories if user requests someone else's repository list,
-	// or an organization isn't a member of.
+	// 如果请求的是其他用户的仓库列表，或者不是组织成员，则只列出公开仓库
 	var ownRepos []*database.Repository
 	if user.IsOrganization() {
+		// 获取组织的仓库
 		ownRepos, _, err = user.GetUserRepositories(c.User.ID, 1, user.NumRepos)
 	} else {
+		// 获取个人用户的仓库
 		ownRepos, err = database.GetUserRepositories(&database.UserRepoOptions{
 			UserID:   user.ID,
-			Private:  c.User.ID == user.ID,
+			Private:  c.User.ID == user.ID || c.User.IsAdmin, // 如果是自己或管理员，可以查看私有仓库
 			Page:     1,
 			PageSize: user.NumRepos,
 		})
@@ -108,13 +111,14 @@ func listUserRepositories(c *context.APIContext, username string) {
 		return
 	}
 
+	// 加载仓库的额外属性
 	if err = database.RepositoryList(ownRepos).LoadAttributes(); err != nil {
 		c.Error(err, "load attributes")
 		return
 	}
 
-	// Early return for querying other user's repositories
-	if c.User.ID != user.ID {
+	// 如果是查询其他用户的仓库且不是管理员，则提前返回(只返回公开仓库)
+	if c.User.ID != user.ID && !c.User.IsAdmin {
 		repos := make([]*api.Repository, len(ownRepos))
 		for i := range ownRepos {
 			repos[i] = ownRepos[i].APIFormatLegacy(&api.Permission{Admin: true, Push: true, Pull: true})
@@ -123,18 +127,35 @@ func listUserRepositories(c *context.APIContext, username string) {
 		return
 	}
 
+	// 获取用户作为协作者的仓库及其访问权限
 	accessibleRepos, err := database.Handle.Repositories().GetByCollaboratorIDWithAccessMode(c.Req.Context(), user.ID)
 	if err != nil {
 		c.Error(err, "get repositories accesses by collaborator")
 		return
 	}
 
+	// 合并个人仓库和协作仓库
 	numOwnRepos := len(ownRepos)
 	repos := make([]*api.Repository, 0, numOwnRepos+len(accessibleRepos))
+	
+	// 添加个人仓库，拥有完全权限
 	for _, r := range ownRepos {
 		repos = append(repos, r.APIFormatLegacy(&api.Permission{Admin: true, Push: true, Pull: true}))
 	}
 
+	// 将仓库对象转换为 RepositoryList 以便加载属性  
+	repoList := make(database.RepositoryList, 0, len(accessibleRepos))  
+	for repo := range accessibleRepos {  
+		repoList = append(repoList, repo)  
+	}  
+	
+	// 加载仓库的关联属性（包括 Owner 信息）  
+	if err = repoList.LoadAttributes(); err != nil {  
+		c.Error(err, "load repository attributes")  
+		return  
+	}  
+
+	// 添加协作仓库，根据访问权限设置相应权限
 	for repo, access := range accessibleRepos {
 		repos = append(repos,
 			repo.APIFormatLegacy(&api.Permission{
@@ -145,6 +166,7 @@ func listUserRepositories(c *context.APIContext, username string) {
 		)
 	}
 
+	// 返回合并后的仓库列表
 	c.JSONSuccess(&repos)
 }
 
